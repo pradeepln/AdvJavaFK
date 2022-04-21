@@ -1,30 +1,40 @@
-package concurrency.deadlocked;
+package concurrency.deadlocked.lockbased;
+
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Buffer {
-	
+	// my unlocks should have been in finally
 	private int data;
 	private boolean available = false;
+	Lock lock = new ReentrantLock();
+	Condition emptyCondition = lock.newCondition();
+	Condition fullCondition = lock.newCondition();
 	
-	public synchronized int readData() {
+	public int readData() {
+		lock.lock();
 		while(!available) {
 			try {
-				this.wait();
+				fullCondition.await();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
 		//long running loop
 		this.available = false;
-		this.notifyAll();
+		emptyCondition.signalAll();
+		
+		lock.unlock();
 		return this.data;
 	}
 
 	
-	public synchronized void writeData(int newData) {
-		
+	public void writeData(int newData) {
+		lock.lock();
 		while(available) {
 			try {
-				this.wait();
+				emptyCondition.await();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -32,7 +42,8 @@ public class Buffer {
 		
 		this.data = newData;
 		this.available = true;
-		this.notifyAll();
+		fullCondition.signalAll();
+		lock.unlock();
 	}
 	
 }

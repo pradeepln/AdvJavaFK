@@ -1,4 +1,4 @@
-package concurrency.deadlocked;
+package concurrency.deadlocked.lockbased;
 
 public class App {
 

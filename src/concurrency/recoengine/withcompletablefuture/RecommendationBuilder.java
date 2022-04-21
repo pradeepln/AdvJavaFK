@@ -1,7 +1,8 @@
-package concurrency.recoengine.withfutures;
+package concurrency.recoengine.withcompletablefuture;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,25 +21,27 @@ public class RecommendationBuilder {
 		
 		ExecutorService pool = Executors.newFixedThreadPool(5);
 		long start = System.currentTimeMillis();
+		Map<String,Product> recos = new HashMap<String, Product>();
 		
-		Future<Product> crFut = pool.submit(() -> re.getRecoBasedOnCampaign(userId));
-		Future<Product> srFut = pool.submit(() -> re.getRecoBasedOnSearches(userId));
-		Future<Product> hFut = pool.submit(() -> re.getRecoBasedOnOrderHistory(userId));
+		CompletableFuture<Void> crFut = CompletableFuture
+											.supplyAsync(() -> re.getRecoBasedOnCampaign(userId))
+											.thenAccept(p -> recos.put("campaign", p));
+		CompletableFuture<Void> srFut = CompletableFuture
+				.supplyAsync(() -> re.getRecoBasedOnSearches(userId))
+				.thenAccept(p -> recos.put("searches", p));
 		
+		CompletableFuture<Void> hFut = CompletableFuture
+				.supplyAsync(() -> re.getRecoBasedOnOrderHistory(userId))
+				.thenAccept(p -> recos.put("history", p));
 		
-		
-		Product cProduct = crFut.get();
-		Product hProduct = hFut.get();
-		Product sProduct = srFut.get();
+		CompletableFuture.allOf(crFut,srFut,hFut).get();
 		
 		long stop = System.currentTimeMillis();
 		
 		System.out.println("It took "+(stop - start)+" ms to compute the recos...");
 		
-		Map<String,Product> recos = new HashMap<String, Product>();
-		recos.put("campaign", cProduct);
-		recos.put("history", hProduct);
-		recos.put("searches", sProduct);
+		
+		
 		
 		pool.shutdown();
 		return recos;
